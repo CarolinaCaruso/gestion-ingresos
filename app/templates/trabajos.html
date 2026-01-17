@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% block title %}Trabajos{% endblock %}
+
+{% block content %}
+
+<h1>Trabajos</h1>
+
+
+
+<div class="new-button-container">
+    <button class="new-btn"  onclick="nuevoTrabajo()">
+        Nuevo trabajo
+    </button>
+</div>
+
+
+
+
+<div class="table-container">
+    <table  >
+
+        <thead>
+        <tr>
+            <th>Fecha</th>
+            <th>Trabajo</th>
+            <th>Tipo</th>
+            <th>Valor hora</th>
+            <th>Total Neto</th>
+            <th style="width:120px;"></th>
+        </tr>
+        </thead>
+
+        <tbody>
+        {% for t in trabajos %}
+
+                <tr data-id="{{ t.id }}"
+                    data-fecha="{{ t.fecha.isoformat() }}"
+                    data-nombre="{{ t.nombre }}"
+                    data-tipo="{{ t.tipo.id }}"
+                    class="fila-trabajo"
+                    onclick="toggleDetalle(this)">
+
+
+                <td>{{ t.fecha.strftime("%d/%m/%Y") }}</td>
+                <td>{{ t.nombre }}</td>
+                <td>{{ t.tipo.nombre }}</td>
+                <td>$ {{ t.valor_hora | int or "-" }}</td>
+
+                <td>$ {{ t.ingreso_total_neto | int }}</td>
+
+                <td>
+                    <div class="acciones">
+                        <button class="btn-edit"
+                                onclick="event.stopPropagation(); editarTrabajo(this)">
+                            Editar
+                        </button>
+
+                        <button class="btn-delete"
+                                onclick="event.stopPropagation(); eliminarTrabajo(this)">
+                            Eliminar
+                        </button>
+                    </div>
+                </td>
+
+            </tr>
+
+            <!-- ================= DETALLE ================= -->
+            <tr class="detalle-trabajo" style="display:none;">
+                <td colspan="6">
+                    <div class="detalle-contenido">
+                        <div class="detalle-body" data-loaded="false"></div>
+                    </div>
+                </td>
+            </tr>
+
+        {% else %}
+            <tr>
+                <td colspan="5" class="empty">No hay trabajos</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+
+    </table>
+</div>
+
+
+
+
+<script>
+  const TIPOS_TRABAJO = JSON.parse('{{ tipos | tojson | safe }}');
+</script>
+
+
+
+
+
+
+<script>
+/* ============================================================
+   TOGGLE DETALLE
+============================================================ */
+function toggleDetalle(fila) {
+    const detalleFila = fila.nextElementSibling;
+    const contenedor = detalleFila.querySelector(".detalle-body");
+
+    if (detalleFila.style.display === "table-row") {
+        detalleFila.style.display = "none";
+        return;
+    }
+
+    detalleFila.style.display = "table-row";
+
+    if (contenedor.dataset.loaded === "true") return;
+
+    const id = fila.dataset.id;
+
+    fetch(`{{ url_for('trabajos.detalle', trabajo_id=0) }}`.replace("0", id))
+        .then(r => r.json())
+        .then(data => {
+
+        let html = `
+        <div class="mes-contenido">
+
+            <!-- ================= INGRESOS ================= -->
+            <div class="columna ingresos">
+                <h3>Ingresos</h3>
+                <table class="tabla-ingresos sub-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        data.pagos.forEach(p => {
+            html += `
+                <tr data-id="${p.id}" data-type="pago">
+                    <td>${p.fecha}</td>
+                    <td class="positivo">$ ${p.monto}</td>
+                    <td class="accion">
+                        <button class="btn-delete-row" title="Eliminar">✕</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+
+
+        html += `
+                <tr class="fila-total">
+                    <td><strong>Total ingresos</strong></td>
+                    <td class="positivo"><strong>$ ${data.bruto}</strong></td>
+                    <td></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ================= GASTOS ================= -->
+        <div class="columna gastos">
+            <h3>Gastos</h3>
+            <table class="tabla-gastos sub-table">
+                <thead>
+                    <tr>
+                        <th>Insumo</th>
+                        <th>Tiempo</th>
+                        <th>Monto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        data.gastos.forEach(g => {
+            html += `
+                <tr data-id="${g.id}" data-type="gasto">
+                    <td>${g.insumo}</td>
+                    <td>${formatearTiempo(g.tiempo)}</td>
+                    <td class="negativo">$ ${g.monto}</td>
+                    <td class="accion">
+                        <button class="btn-delete-row" title="Eliminar">✕</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+
+
+        html += `
+                <tr class="fila-total">
+                    <td><strong>Totales</strong></td>
+                    <td><strong>${formatearTiempo(data.horas_totales)} hs</strong></td>
+                    <td class="negativo"><strong>$ ${data.gastos_total}</strong></td>
+                    <td></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        </div>
+
+        <!-- ================= NETO ================= -->
+        <div class="fila-neto">
+            Ingreso neto del trabajo
+            <span>$ ${data.neto}</span>
+        </div>
+        `;
+
+
+            contenedor.innerHTML = html;
+            contenedor.dataset.loaded = "true";
+        });
+}
+
+/* ============================================================
+   ELIMINAR
+============================================================ */
+function eliminarTrabajo(btn) {
+    const fila = btn.closest("tr");
+    const id = fila.dataset.id;
+
+    if (!confirm("¿Eliminar este trabajo?")) return;
+
+    fetch(`{{ url_for('trabajos.eliminar', trabajo_id=0) }}`.replace("0", id), {
+        method: "POST"
+    }).then(() => location.reload());
+}
+
+
+
+
+function formatearTiempo(decimal) {
+    if (!decimal && decimal !== 0) return "-";
+
+    const horas = Math.floor(decimal);
+    const minutos = Math.round((decimal - horas) * 60);
+
+    return `${horas}:${minutos.toString().padStart(2, "0")}`;
+}
+
+
+
+
+
+</script>
+
+
+
+
+<script>
+
+function editarTrabajo(btn) {
+    const fila = btn.closest("tr");
+    fila.onclick = null;
+
+    const tds = fila.querySelectorAll("td");
+
+    const fecha = fila.dataset.fecha;
+    const nombre = fila.dataset.nombre;
+    const tipoId = fila.dataset.tipo;
+
+    tds[0].innerHTML = `<input  class="form-control" type="date" value="${fecha}">`;
+    tds[1].innerHTML = `<input  class="form-control" type="text" value="${nombre}">`;
+
+    let opciones = "";
+    TIPOS_TRABAJO.forEach(t => {
+        const selected = t.id == tipoId ? "selected" : "";
+        opciones += `<option value="${t.id}" ${selected}>${t.nombre}</option>`;
+    });
+
+    tds[2].innerHTML = `
+        <select  class="form-control">
+            ${opciones}
+        </select>
+    `;
+
+    tds[5].innerHTML = `
+        <div class="acciones">
+            <button class="btn-save"
+                    onclick="guardarTrabajo(event, this)">
+                Guardar
+            </button>
+            <button class="btn-delete"
+                    onclick="cancelarEdicion(event, this)">
+                Cancelar
+            </button>
+        </div>
+    `;
+}
+
+
+function cancelarEdicion(e, btn) {
+    e.stopPropagation();
+    location.reload(); // simple y seguro
+}
+
+function guardarTrabajo(e, btn) {
+    e.stopPropagation();
+
+    const fila = btn.closest("tr");
+    const id = fila.dataset.id;
+    const inputs = fila.querySelectorAll("input, select");
+
+    const data = {
+        fecha: inputs[0].value,
+        nombre: inputs[1].value,
+        tipo_id: inputs[2].value
+    };
+
+    fetch(`/trabajos/editar/${id}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => {
+        if (!r.ok) throw new Error();
+        location.reload();
+    })
+    .catch(() => alert("No se pudo guardar"));
+}
+</script>
+
+
+
+<script>
+function nuevoTrabajo() {
+    const tbody = document.querySelector("tbody");
+
+    if (tbody.querySelector(".fila-nueva")) return;
+
+    const hoy = new Date().toISOString().split("T")[0];
+
+    let opciones = TIPOS_TRABAJO.map(t =>
+        `<option value="${t.id}">${t.nombre}</option>`
+    ).join("");
+
+    opciones += `<option value="__nuevo__">+ Nuevo tipo...</option>`;
+
+    const fila = document.createElement("tr");
+    fila.classList.add("fila-nueva");
+
+    fila.innerHTML = `
+        <td>
+            <input type="date" class="form-control" value="${hoy}">
+        </td>
+        <td>
+            <input type="text" class="form-control" placeholder="Nombre del trabajo">
+        </td>
+        <td>
+            <select class="form-control" onchange="checkNuevoTipo(this)">
+                ${opciones}
+            </select>
+        </td>
+        <td>-</td>
+        <td>-</td>
+        <td>
+            <div class="acciones">
+                <button class="btn-save" onclick="guardarNuevoTrabajo(event)">
+                    Guardar
+                </button>
+                <button class="btn-delete" onclick="cancelarNuevoTrabajo(event)">
+                    Cancelar
+                </button>
+            </div>
+        </td>
+    `;
+
+    tbody.prepend(fila);
+}
+</script>
+
+
+
+
+<script>
+function checkNuevoTipo(select) {
+    if (select.value !== "__nuevo__") return;
+
+    const nombre = prompt("Nombre del nuevo tipo:");
+    if (!nombre) {
+        select.value = "";
+        return;
+    }
+
+    fetch("/trabajos/tipos/nuevo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const option = document.createElement("option");
+        option.value = data.id;
+        option.textContent = data.nombre;
+
+        select.insertBefore(option, select.lastElementChild);
+        select.value = data.id;
+
+        TIPOS_TRABAJO.push(data);
+    })
+    .catch(() => {
+        alert("No se pudo crear el tipo");
+        select.value = "";
+    });
+}
+</script>
+
+
+
+
+<script>
+function guardarNuevoTrabajo(e) {
+    e.stopPropagation();
+
+    const fila = document.querySelector(".fila-nueva");
+    const inputs = fila.querySelectorAll("input, select");
+
+    const data = {
+        fecha: inputs[0].value,
+        nombre: inputs[1].value,
+        tipo_id: inputs[2].value
+    };
+
+    if (!data.nombre || !data.tipo_id) {
+        alert("Completá todos los campos");
+        return;
+    }
+
+    fetch("/trabajos/nuevo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+    })
+    .then(r => {
+        if (!r.ok) throw new Error();
+        location.reload();
+    })
+    .catch(() => alert("No se pudo guardar"));
+}
+
+function cancelarNuevoTrabajo(e) {
+    e.stopPropagation();
+    document.querySelector(".fila-nueva")?.remove();
+}
+</script>
+
+
+
+
+
+
+
+
+
+{% endblock %}

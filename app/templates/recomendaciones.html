@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Recomendación de Ahorros{% endblock %}
+{% block content %}
+
+<h1>Recomendación de Ahorros</h1>
+
+<p class="subtitulo">
+    Basado en tus ingresos netos
+</p>
+
+<div class="cards-container">
+
+{% for m in datos %}
+    <div class="card">
+        
+
+        <h2>{{ m.mes_formateado }}</h2>
+
+
+
+
+        <p class="total-neto">
+             <strong>$ {{ "%.0f"|format(m.total) }}</strong>
+        </p>
+
+        <table class="tabla-ahorro">
+            <thead>
+                <tr>
+                    <th>Estilo</th>
+                    <th>Porcentaje</th>
+                    <th>Monto recomendado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for nombre, info in m.ahorros.items() %}
+                <tr>
+                    <td>{{ nombre }}</td>
+                    <td>{{ info.porcentaje }}%</td>
+                    <td>$ {{ "%.0f"|format(info.monto) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+{% endfor %}
+
+</div>
+
+{% endblock %}

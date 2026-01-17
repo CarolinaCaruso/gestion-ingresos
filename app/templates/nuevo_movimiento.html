@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Nuevo movimiento{% endblock %}
+
+{% block content %}
+<h1>Nuevo movimiento</h1>
+
+<div class="table-container">
+<table>
+    <tbody>
+
+        <!-- TIPO -->
+        <tr>
+            <td>Tipo</td>
+            <td>
+                <select id="tipoMovimiento" name="tipo_movimiento" class="form-control">
+                    <option value="">Seleccionar</option>
+                    <option value="ingreso">Ingreso</option>
+                    <option value="gasto">Gasto</option>
+                </select>
+            </td>
+        </tr>
+
+        <!-- FECHA -->
+        <tr>
+            <td>Fecha</td>
+            <td>
+                <input type="date" name="fecha" class="form-control" required value="{{ hoy }}">
+            </td>
+        </tr>
+
+        <!-- TRABAJO -->
+        <tr>
+            <td>Trabajo</td>
+            <td>
+                <select id="trabajoSelect" class="form-control">
+                    <option value="">Seleccionar</option>
+                    {% for t in trabajos %}
+                        <option value="{{ t.id }}">{{ t.nombre }}</option>
+                    {% endfor %}
+                    <option value="nuevo">+ Nuevo trabajo</option>
+                </select>
+            </td>
+        </tr>
+
+        <!-- NUEVO TRABAJO -->
+        <tr id="filaNuevoTrabajo" style="display:none;">
+            <td colspan="2">
+
+                <input type="text"
+                    id="nuevoTrabajo"
+                    placeholder="Nombre del nuevo trabajo"
+                    class="form-control">
+
+                <input type="date"
+                    id="fechaNuevoTrabajo"
+                    class="form-control"
+                    value="{{ hoy }}">
+
+                <!-- TIPO DE TRABAJO -->
+                <select id="tipoTrabajoSelect" class="form-control">
+                    <option value="">Seleccionar tipo</option>
+                    {% for tt in tipos_trabajo %}
+                        <option value="{{ tt.id }}">{{ tt.nombre }}</option>
+                    {% endfor %}
+                    <option value="nuevo">+ Nuevo tipo</option>
+                </select>
+
+                <!-- NUEVO TIPO -->
+                <input type="text"
+                    id="nuevoTipoTrabajo"
+                    class="form-control"
+                    placeholder="Nombre del nuevo tipo"
+                    style="display:none;">
+
+            </td>
+        </tr>
+
+
+        <!-- INSUMO -->
+        <tr id="filaInsumo" style="display:none;">
+            <td>Insumo</td>
+            <td>
+                <select id="insumoSelect" class="form-control">
+                    {% for i in insumos %}
+                        <option value="{{ i.id }}">{{ i.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+        </tr>
+
+        <!-- MONTO -->
+        <tr>
+            <td>Monto</td>
+            <td>
+                <input type="number" id="montoInput" step="0.01" class="form-control">
+            </td>
+        </tr>
+
+        <!-- TIEMPO -->
+        <tr id="filaTiempo" style="display:none;">
+            <td>Tiempo</td>
+            <td style="display:flex; gap:10px;">
+                <select id="horasSelect" class="form-control">
+                    <option value="0" selected>0 hs</option>
+                </select>
+
+                <select id="minutosSelect" class="form-control">
+                    <option value="0" selected>0 min</option>
+                </select>
+            </td>
+        </tr>
+
+
+    </tbody>
+</table>
+</div>
+
+<div class="new-button-container">
+    <button class="save-btn" onclick="guardarMovimiento()">Guardar</button>
+</div>
+
+<script>
+const tipoMovimiento = document.getElementById("tipoMovimiento");
+const trabajoSelect = document.getElementById("trabajoSelect");
+const filaNuevoTrabajo = document.getElementById("filaNuevoTrabajo");
+const filaTiempo = document.getElementById("filaTiempo");
+const filaInsumo = document.getElementById("filaInsumo");
+const montoInput = document.getElementById("montoInput");
+const tiempoSelect = document.getElementById("tiempoSelect");
+const tipoTrabajoSelect = document.getElementById("tipoTrabajoSelect");
+const nuevoTipoTrabajo = document.getElementById("nuevoTipoTrabajo");
+
+
+/* ===== TIPO ===== */
+tipoMovimiento.addEventListener("change", () => {
+    const esGasto = tipoMovimiento.value === "gasto";
+    filaTiempo.style.display = esGasto ? "table-row" : "none";
+    filaInsumo.style.display = esGasto ? "table-row" : "none";
+    montoInput.required = !esGasto;
+});
+
+/* ===== NUEVO TRABAJO ===== */
+trabajoSelect.addEventListener("change", () => {
+    filaNuevoTrabajo.style.display =
+        trabajoSelect.value === "nuevo" ? "table-row" : "none";
+});
+
+
+tipoTrabajoSelect.addEventListener("change", () => {
+    nuevoTipoTrabajo.style.display =
+        tipoTrabajoSelect.value === "nuevo" ? "block" : "none";
+});
+
+
+
+
+
+/* ===== TIEMPOS ===== */
+
+const horasSelect = document.getElementById("horasSelect");
+const minutosSelect = document.getElementById("minutosSelect");
+
+/* ===== HORAS ===== */
+(function cargarHoras() {
+    for (let h = 0; h <= 12; h++) {   // ajustá el máximo si querés
+        const opt = document.createElement("option");
+        opt.value = h;
+        opt.textContent = `${h} hs`;
+        horasSelect.appendChild(opt);
+    }
+})();
+
+/* ===== MINUTOS ===== */
+(function cargarMinutos() {
+    for (let m = 0; m < 60; m += 5) {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = `${m} min`;
+        minutosSelect.appendChild(opt);
+    }
+})();
+
+
+/* ===== GUARDAR ===== */
+function guardarMovimiento() {
+    const horas = parseInt(horasSelect.value);
+    const minutos = parseInt(minutosSelect.value);
+    const tiempoTotal = horas + (minutos / 60);
+
+    const data = {
+        tipo: tipoMovimiento.value,
+        trabajo_id: trabajoSelect.value,
+        nuevo_trabajo: document.getElementById("nuevoTrabajo").value,
+        fecha_trabajo: document.getElementById("fechaNuevoTrabajo").value,
+
+        tipo_trabajo_id: tipoTrabajoSelect?.value,
+        nuevo_tipo_trabajo: nuevoTipoTrabajo?.value,
+
+        fecha: document.querySelector("input[name='fecha']").value,
+        monto: montoInput.value,
+        tiempo: tiempoTotal,
+        insumo_id: document.getElementById("insumoSelect")?.value
+    };
+
+    fetch("{{ url_for('movimientos.guardar') }}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    }).then(() => {
+        window.location.href = "{{ url_for('main.index') }}";
+    });
+}
+
+
+</script>
+{% endblock %}
+
+
+

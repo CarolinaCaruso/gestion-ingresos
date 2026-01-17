@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Resumen{% endblock %}
+
+{% block content %}
+<h1>Movimientos mensuales</h1>
+
+
+
+<div class="new-button-container">
+    <a href="{{ url_for('movimientos.nuevo') }}">
+        <button class="new-btn">
+            Nuevo movimiento
+        </button>
+    </a>
+</div>
+
+
+
+
+
+{% for mes in meses %}
+<div class="mes-bloque">
+
+    <h2>{{ mes.label }}</h2>
+
+    <div class="mes-contenido">
+
+        <!-- ================= INGRESOS ================= -->
+        <div class="columna ingresos">
+            <h3>Ingresos</h3>
+            <table  class="tabla-ingresos">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Trabajo</th>
+                        <th>Monto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+
+
+                    {% for p in mes.pagos %}
+                    <tr data-id="{{ p.id }}" data-type="pago">
+                        <td>{{ p.fecha.strftime("%d/%m") }}</td>
+                        <td>{{ p.trabajo.nombre }}</td>
+                        <td class="positivo">$ {{ p.monto | int }}</td>
+                        <td class="accion">
+                            <button class="btn-delete-row" title="Eliminar">✕</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+
+                    <tr class="fila-total">
+                        <td colspan="2"><strong>Total ingresos</strong></td>
+                        <td class="positivo"><strong>$ {{ mes.total_ingresos  | int}}</strong></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ================= GASTOS ================= -->
+        <div class="columna gastos">
+            <h3>Gastos</h3>
+            <table  class="tabla-gastos">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Insumo</th>
+                        <th>Monto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+
+
+                    {% for g in mes.gastos %}
+                    <tr data-id="{{ g.id }}" data-type="gasto">
+                        <td>{{ g.trabajo.fecha.strftime("%d/%m") }}</td>
+                        <td>{{ g.insumo.nombre }}</td>
+                        <td class="negativo">$ {{ g.monto | int }}</td>
+                        <td class="accion">
+                            <button class="btn-delete-row" title="Eliminar">✕</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+
+                    <tr class="fila-total">
+                        <td colspan="2"><strong>Total gastos</strong></td>
+                        <td class="negativo"><strong>$  {{ mes.total_gastos  | int}}</strong></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- ================= NETO ================= -->
+    <div class="fila-neto">
+        Ingreso neto del mes
+        <span>$ {{ mes.neto  | int}}</span>
+    </div>
+
+</div>
+{% endfor %}
+
+
+
+<script>
+document.addEventListener("click", function (e) {
+    if (!e.target.classList.contains("btn-delete-row")) return;
+
+    const row = e.target.closest("tr");
+    const id = row.dataset.id;
+    const type = row.dataset.type;
+
+    const label = type === "pago" ? "este ingreso" : "este gasto";
+
+    if (!confirm(`¿Eliminar ${label}?`)) return;
+
+    fetch(`/eliminar/${type}/${id}`, {
+        method: "DELETE"
+    })
+    .then(res => {
+        if (!res.ok) throw new Error();
+        row.remove();
+        location.reload();
+    })
+    .catch(() => {
+        alert("No se pudo eliminar");
+    });
+});
+</script>
+
+
+
+
+
+
+
+
+
+
+{% endblock %}

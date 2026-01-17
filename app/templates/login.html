@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+
+    <div class="auth-card">
+        <h1>Bienvenida 👋</h1>
+        <p class="auth-subtitle">
+            Iniciá sesión para acceder a tus trabajos
+        </p>
+
+        <!-- BOTÓN GOOGLE -->
+        <a href="{{ url_for('auth.login_google') }}" class="google-btn">
+            <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google">
+            Ingresar con Google
+        </a>
+
+        <!-- FUTURO (opcional) -->
+        <!--
+        <div class="auth-divider">o</div>
+
+        <form>
+            <input type="email" placeholder="Email" class="auth-input">
+            <input type="password" placeholder="Contraseña" class="auth-input">
+            <button class="auth-btn">Ingresar</button>
+        </form>
+        -->
+
+    </div>
+
+</div>
+{% endblock %}

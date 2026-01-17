@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{% block title %}Gestión de Ingresos{% endblock %}</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <header class="main-header">
+        
+
+        <div class="header-left">
+            <button class="nav-toggle" id="navToggle">☰</button>
+            <div class="logo">Gestión de Ingresos</div>
+        </div>
+
+
+        <!-- NAV -->
+
+
+        <nav class="nav" id="mainNav">
+            <a href="{{ url_for('main.index') }}">Movimientos mensuales</a>
+            <a href="{{ url_for('movimientos.resumen_anual') }}">Resumen anual</a>
+            <a href="{{ url_for('trabajos.index') }}">Trabajos</a>
+            <a href="{{ url_for('tipos_trabajo.index') }}">Tipos de trabajo</a>
+            <a href="{{ url_for('insumos.index') }}">Insumos</a>
+            <a href="{{ url_for('recomendaciones.index') }}">Recomendaciones de ahorro</a>
+        </nav>
+
+        {% if current_user.is_authenticated %}
+        <div class="user-menu">
+            <a href="{{ url_for('auth.logout') }}" class="logout-link">
+                Cerrar sesión
+                <img src="{{ current_user.foto_url }}" alt="Perfil" class="user-avatar">
+            </a>
+
+        </div>
+        {% endif %}
+
+    </header>
+
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+
+</body>
+</html>
+
+
+
+
+
+
+<script>
+document.getElementById("navToggle")
+    .addEventListener("click", () => {
+        document.getElementById("mainNav")
+            .classList.toggle("open");
+    });
+</script>
+

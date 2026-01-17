@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Tipos de Trabajo{% endblock %}
+{% block content %}
+
+<h1>Tipos de Trabajo</h1>
+
+<div class="new-button-container">
+    <button class="new-btn" onclick="nuevoTipo()">Nuevo tipo</button>
+</div>
+
+<div class="table-container">
+<table>
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th style="width:180px;"></th>
+        </tr>
+    </thead>
+    <tbody>
+
+    {% for tipo in tipos %}
+        <tr class="fila-tipo" data-id="{{ tipo.id }}">
+            <td class="nombre">{{ tipo.nombre }}</td>
+            <td>
+                <button class="btn-edit" onclick="editarTipo(this)">Editar</button>
+                <button class="btn-delete" onclick="eliminarTipo(this)">Eliminar</button>
+            </td>
+        </tr>
+
+        <tr class="fila-detalle-tipo" style="display:none">
+            <td colspan="2">
+                <div class="detalle-tipo"></div>
+            </td>
+        </tr>
+    {% endfor %}
+
+    </tbody>
+</table>
+</div>
+
+<script>
+function formatearMes(mesStr) {
+    const [mm, yyyy] = mesStr.split("-");
+    const meses = [
+        "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+        "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
+    ];
+    return `${meses[mm - 1]} ${yyyy}`;
+}
+</script>
+
+<script>
+/* ========== TIPOS ========== */
+document.addEventListener("click", async e => {
+    const fila = e.target.closest(".fila-tipo");
+    if (!fila) return;
+
+    const detalle = fila.nextElementSibling;
+    const contenedor = detalle.querySelector(".detalle-tipo");
+    const tipoId = fila.dataset.id;
+
+    if (detalle.style.display === "table-row") {
+        detalle.style.display = "none";
+        return;
+    }
+
+    detalle.style.display = "table-row";
+    contenedor.innerHTML = "Cargando...";
+
+    const res = await fetch(`/tipos-trabajo/${tipoId}/resumen`);
+    const data = await res.json();
+
+    let html = `
+        <table class="tabla-resumen">
+            <thead>
+                <tr>
+                    <th  colspan="3">Mes</th>
+                    <th>Total bruto</th>
+                    <th>Gasto total</th>
+                    <th>Total neto</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const m of data) {
+        html += `
+            <tr class="fila-mes" data-tipo="${tipoId}" data-mes="${m.mes}">
+                <td  colspan="3">${formatearMes(m.mes)}</td>
+                <td>$ ${m.bruto}</td>
+                <td>$ ${m.gasto}</td>
+                <td>$ ${m.neto}</td>
+            </tr>
+            <tr class="fila-detalle-mes" style="display:none">
+                <td colspan="6" class="detalle-mes"></td>
+            </tr>
+        `;
+    }
+
+    html += "</tbody></table>";
+    contenedor.innerHTML = html;
+});
+
+/* ========== MESES ========== */
+document.addEventListener("click", async e => {
+    const fila = e.target.closest(".fila-mes");
+    if (!fila) return;
+
+    const detalle = fila.nextElementSibling;
+    const contenedor = detalle.querySelector(".detalle-mes");
+
+    if (detalle.style.display === "table-row") {
+        detalle.style.display = "none";
+        return;
+    }
+
+    detalle.style.display = "table-row";
+    contenedor.innerHTML = "Cargando detalle...";
+
+    const tipoId = fila.dataset.tipo;
+    const mes = fila.dataset.mes;
+
+    const res = await fetch(`/tipos-trabajo/${tipoId}/detalle/${mes}`);
+    const data = await res.json();
+
+    let html = `
+        <table class="tabla-detalle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Trabajo</th>
+                    <th>Ingreso bruto</th>
+                    <th>Gasto</th>
+                    <th>Ingreso neto</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const t of data) {
+        html += `
+            <tr>
+                <td>${t.fecha}</td>
+                <td>${t.tipo}</td>
+                <td>${t.trabajo}</td>
+                <td>$ ${t.bruto}</td>
+                <td>$ ${t.gasto}</td>
+                <td>$ ${t.neto}</td>
+            </tr>
+        `;
+    }
+
+    html += "</tbody></table>";
+    contenedor.innerHTML = html;
+});
+</script>
+
+
+<script>
+
+        function nuevoTipo() {
+        const nombre = prompt("Nombre del nuevo tipo:");
+        if (!nombre) return;
+
+        fetch("{{ url_for('tipos_trabajo.nuevo') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ nombre })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const data = await response.json();
+                alert(data.error || "No se pudo guardar");
+                return;
+            }
+            location.reload();
+        });
+    }
+
+
+    const editarTipoUrlBase = "{{ url_for('tipos_trabajo.editar', tipo_id=0) }}";
+    const eliminarTipoUrlBase = "{{ url_for('tipos_trabajo.eliminar', tipo_id=0) }}";
+
+    function editarTipo(btn) {
+        const fila = btn.closest("tr");
+        const id = fila.dataset.id;
+        const celda = fila.querySelector(".nombre");
+
+        const nuevo = prompt("Nuevo nombre:", celda.textContent);
+        if (!nuevo) return;
+
+        fetch(editarTipoUrlBase.replace("0", id), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ nombre: nuevo })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const data = await response.json();
+                alert(data.error || "No se pudo editar");
+                return;
+            }
+            location.reload();
+        });
+    }
+
+    function eliminarTipo(btn) {
+        const fila = btn.closest("tr");
+        const id = fila.dataset.id;
+
+        if (!confirm("¿Eliminar este tipo de trabajo?")) return;
+
+        fetch(eliminarTipoUrlBase.replace("0", id), {
+            method: "POST"
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const data = await response.json();
+                alert(data.error || "No se pudo eliminar");
+                return;
+            }
+            location.reload();
+        });
+    }
+</script>
+
+
+
+{% endblock %}

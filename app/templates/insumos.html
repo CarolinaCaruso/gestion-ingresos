@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Insumos{% endblock %}
+{% block content %}
+
+<h1>Insumos</h1>
+
+<div class="new-button-container">
+    <button class="new-btn" onclick="nuevoInsumo()">Nuevo insumo</button>
+</div>
+
+<div class="table-container">
+<table>
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th style="width:180px;"></th>
+        </tr>
+    </thead>
+    <tbody>
+
+    {% for insumo in insumos %}
+        <!-- FILA INSUMO -->
+        <tr class="fila-insumo" data-id="{{ insumo.id }}">
+            <td class="nombre">{{ insumo.nombre }}</td>
+            <td>
+                <button class="btn-edit" onclick="editarInsumo(this)">Editar</button>
+                <button class="btn-delete"  onclick="eliminarInsumo(this)">Eliminar</button>
+            </td>
+        </tr>
+
+        <!-- DETALLE INSUMO -->
+        <tr class="fila-detalle-insumo" style="display:none">
+            <td colspan="2">
+                <div class="detalle-insumo"></div>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="2">No hay insumos</td></tr>
+    {% endfor %}
+
+    </tbody>
+</table>
+</div>
+
+
+
+<script>
+function formatearMes(mesStr) {
+    const [mm, yyyy] = mesStr.split("-");
+    const meses = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+    return `${meses[parseInt(mm, 10) - 1]} ${yyyy}`;
+}
+</script>
+
+
+
+
+
+<script>
+function nuevoInsumo() {
+    const nombre = prompt("Nombre del nuevo insumo:");
+    if (!nombre) return;
+
+    fetch("{{ url_for('insumos.nuevo') }}", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ nombre })
+    })
+    .then(async response => {
+        if (!response.ok) {
+            const data = await response.json();
+            alert(data.error || "No se pudo guardar");
+            return;
+        }
+        location.reload();
+    });
+}
+
+function editarInsumo(btn) {
+    const fila = btn.closest("tr");
+    const id = fila.dataset.id;
+    const celda = fila.querySelector(".nombre");
+
+    const nuevo = prompt("Nuevo nombre:", celda.textContent);
+    if (!nuevo) return;
+
+    fetch(`{{ url_for('insumos.editar', insumo_id=0) }}`.replace("0", id), {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ nombre: nuevo })
+    })
+    .then(async response => {
+        if (!response.ok) {
+            const data = await response.json();
+            alert(data.error || "No se pudo editar");
+            return;
+        }
+        location.reload();
+    });
+}
+
+function eliminarInsumo(btn) {
+    const fila = btn.closest("tr");
+    const id = fila.dataset.id;
+
+    if (!confirm("¿Eliminar este insumo?")) return;
+
+    fetch(`{{ url_for('insumos.eliminar', insumo_id=0) }}`.replace("0", id), {
+        method: "POST"
+    })
+    .then(async response => {
+        if (!response.ok) {
+            const data = await response.json();
+            alert(data.error || "No se pudo eliminar");
+            return;
+        }
+        location.reload();
+    });
+}
+</script>
+
+
+<script>
+/* ================= INSUMOS ================= */
+
+document.addEventListener("click", async e => {
+    const fila = e.target.closest(".fila-insumo");
+    if (!fila) return;
+
+    const detalle = fila.nextElementSibling;
+    const contenedor = detalle.querySelector(".detalle-insumo");
+    const id = fila.dataset.id;
+
+    if (detalle.style.display === "table-row") {
+        detalle.style.display = "none";
+        return;
+    }
+
+    detalle.style.display = "table-row";
+    contenedor.innerHTML = "Cargando...";
+
+    const res = await fetch(`/insumos/${id}/resumen`);
+    const data = await res.json();
+
+    let html = `
+        <table class="tabla-resumen">
+            <thead>
+                <tr>
+                    <th colspan="2">Mes</th>
+                    <th>Tiempo total</th>
+                    <th colspan="2">Gasto total</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const m of data) {
+        html += `
+            <tr class="fila-mes" data-insumo="${id}" data-mes="${m.mes}">
+                <td colspan="2">${formatearMes(m.mes)}</td>
+                <td>${formatearTiempo(m.tiempo)} h</td>
+                <td colspan="2">$ ${m.total}</td>
+            </tr>
+            <tr class="fila-detalle-mes" style="display:none">
+                <td colspan="5" class="detalle-mes"></td>
+            </tr>
+        `;
+    }
+
+    html += "</tbody></table>";
+    contenedor.innerHTML = html;
+});
+
+/* ================= MESES ================= */
+
+document.addEventListener("click", async e => {
+    const fila = e.target.closest(".fila-mes");
+    if (!fila) return;
+
+    const detalle = fila.nextElementSibling;
+    const contenedor = detalle.querySelector(".detalle-mes");
+
+    if (detalle.style.display === "table-row") {
+        detalle.style.display = "none";
+        return;
+    }
+
+    detalle.style.display = "table-row";
+    contenedor.innerHTML = "Cargando detalle...";
+
+    const insumoId = fila.dataset.insumo;
+    const mes = fila.dataset.mes;
+
+    /* 👇 OBTENER NOMBRE DEL INSUMO */
+    const nombreInsumo = fila
+        .closest(".detalle-insumo")
+        .closest("tr")
+        .previousElementSibling
+        .querySelector(".nombre")
+        .textContent;
+
+    const res = await fetch(`/insumos/${insumoId}/detalle/${mes}`);
+    const data = await res.json();
+
+
+    let html = `
+        <table class="tabla-detalle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Insumo</th>
+                    <th>Tiempo</th>
+                    <th>Gasto</th>
+                    <th>Trabajo</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    for (const g of data) {
+        html += `
+            <tr>
+                <td>${g.fecha}</td>
+                <td>${nombreInsumo}</td>
+                <td>${formatearTiempo(g.tiempo)}</td>
+                <td>$ ${g.monto}</td>
+                <td>${g.trabajo}</td>
+            </tr>
+        `;
+    }
+
+    html += "</tbody></table>";
+    contenedor.innerHTML = html;
+});
+
+
+
+
+function formatearTiempo(decimal) {
+    if (!decimal && decimal !== 0) return "-";
+
+    const horas = Math.floor(decimal);
+    const minutos = Math.round((decimal - horas) * 60);
+
+    return `${horas}:${minutos.toString().padStart(2, "0")}`;
+}
+
+
+
+
+</script>
+
+{% endblock %}

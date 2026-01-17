@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content">
+
+    <h1>Resumen anual</h1>
+    <p class="subtitle">Ingresos y gastos agrupados por año</p>
+
+    <div class="table-container">
+        {% if resumen_anual %}
+        <table class="tabla-resumen-anual">
+            <thead>
+                <tr>
+                    <th>Año</th>
+                    <th class="num">Ingreso bruto</th>
+                    <th class="num">Gastos</th>
+                    <th class="num">Ingreso neto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in resumen_anual %}
+                <tr>
+                    <td>{{ fila.anio }}</td>
+                    <td class="num positivo">
+                        $ {{ fila.ingreso_bruto | int }}
+                    </td>
+                    <td class="num negativo">
+                        $ {{ fila.gastos | int }}
+                    </td>
+                    <td class="num {% if fila.ingreso_neto >= 0 %}positivo{% else %}negativo{% endif %}">
+                        $ {{ fila.ingreso_neto | int }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty">
+            No hay datos para mostrar
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/resumen_anual.js') }}"></script>
+
+
+<script>
+    
+    
+    document.querySelectorAll("th").forEach((header, index) => {
+        header.addEventListener("click", () => {
+            sortTable(index);
+        });
+    });
+    
+    function sortTable(columnIndex) {
+        const table = document.querySelector("table");
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        
+        const asc = table.dataset.sort !== "asc";
+        table.dataset.sort = asc ? "asc" : "desc";
+        
+        rows.sort((a, b) => {
+            let A = a.children[columnIndex].innerText.replace(/[$,.]/g, '');
+            let B = b.children[columnIndex].innerText.replace(/[$,.]/g, '');
+            
+            A = isNaN(A) ? A : parseFloat(A);
+            B = isNaN(B) ? B : parseFloat(B);
+            
+            return asc ? A > B ? 1 : -1 : A < B ? 1 : -1;
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
+    }
+    
+    
+    
+    
+</script>
+    
+
+
+
+
+
+{% endblock %}
