@@ -1,8 +1,16 @@
 Flask
-Flask-SQLAlchemy
 Flask-Login
+Flask-SQLAlchemy
+Flask-Migrate
+Werkzeug
+
+requests
+Authlib
+
+python-dotenv
 gunicorn
-authlib
+psycopg2-binary
+
 
 
 
