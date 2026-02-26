@@ -451,7 +451,37 @@ function cancelarNuevoTrabajo(e) {
 
 
 
+<script>
+document.addEventListener("click", function (e) {
 
+    if (!e.target.classList.contains("btn-delete-row")) return;
+
+    e.stopPropagation();
+
+    const fila = e.target.closest("tr");
+    const id = fila.dataset.id;
+    const type = fila.dataset.type; // "pago" o "gasto"
+
+    if (!confirm("¿Eliminar este registro?")) return;
+
+    let url = "";
+
+    if (type === "pago") {
+        url = `/trabajos/eliminar/pago/${id}`;
+    } else if (type === "gasto") {
+        url = `/trabajos/eliminar/gasto/${id}`;
+    }
+
+    fetch(url, {
+        method: "DELETE"
+    })
+    .then(r => {
+        if (!r.ok) throw new Error();
+        fila.remove();
+    })
+    .catch(() => alert("No se pudo eliminar"));
+});
+</script>
 
 
 

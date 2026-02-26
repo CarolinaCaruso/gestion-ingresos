@@ -67,26 +67,30 @@ def guardar():
     fecha_mov = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
 
     # ================= TIPO DE TRABAJO =================
-    tipo_trabajo = None
+    tipo_trabajo_id = None
 
     if data["trabajo_id"] == "nuevo":
 
+        # eligió crear tipo nuevo
         if data.get("tipo_trabajo_id") == "nuevo":
-            if not data.get("nuevo_tipo_trabajo"):
-                return jsonify(error="Nombre de tipo requerido"), 400
+            if data.get("nuevo_tipo_trabajo"):
+                tipo_trabajo = TipoTrabajo(
+                    nombre=data["nuevo_tipo_trabajo"],
+                    usuario_id=current_user.id
+                )
+                db.session.add(tipo_trabajo)
+                db.session.flush()
+                tipo_trabajo_id = tipo_trabajo.id
 
-            tipo_trabajo = TipoTrabajo(
-                nombre=data["nuevo_tipo_trabajo"],
-                usuario_id=current_user.id
-            )
-            db.session.add(tipo_trabajo)
-            db.session.flush()
-
-        else:
-            tipo_trabajo = TipoTrabajo.query.filter_by(
+        # eligió un tipo existente
+        elif data.get("tipo_trabajo_id"):
+            tipo = TipoTrabajo.query.filter_by(
                 id=int(data["tipo_trabajo_id"]),
                 usuario_id=current_user.id
-            ).first_or_404()
+            ).first()
+
+            if tipo:
+                tipo_trabajo_id = tipo.id
 
     # ================= TRABAJO =================
     if data["trabajo_id"] == "nuevo":
@@ -95,7 +99,7 @@ def guardar():
             fecha=datetime.strptime(
                 data["fecha_trabajo"], "%Y-%m-%d"
             ).date(),
-            tipo_id=tipo_trabajo.id,
+            tipo_id=tipo_trabajo_id,
             usuario_id=current_user.id
         )
         db.session.add(trabajo)
@@ -119,10 +123,34 @@ def guardar():
 
     # ================= GASTO =================
     else:
-        insumo = Insumo.query.filter_by(
-            id=int(data["insumo_id"]),
-            usuario_id=current_user.id
-        ).first_or_404()
+
+        # ----- CREAR INSUMO NUEVO -----
+        if data.get("insumo_id") == "nuevo":
+            if not data.get("nuevo_insumo"):
+                return jsonify(error="Nombre de insumo requerido"), 400
+
+            # evitar duplicados
+            existente = Insumo.query.filter_by(
+                nombre=data["nuevo_insumo"],
+                usuario_id=current_user.id
+            ).first()
+
+            if existente:
+                insumo = existente
+            else:
+                insumo = Insumo(
+                    nombre=data["nuevo_insumo"],
+                    usuario_id=current_user.id
+                )
+                db.session.add(insumo)
+                db.session.flush()
+
+        # ----- USAR EXISTENTE -----
+        else:
+            insumo = Insumo.query.filter_by(
+                id=int(data["insumo_id"]),
+                usuario_id=current_user.id
+            ).first_or_404()
 
         gasto = GastoTrabajo(
             fecha=fecha_mov,

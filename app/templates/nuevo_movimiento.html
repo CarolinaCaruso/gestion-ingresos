@@ -58,7 +58,7 @@
 
                 <!-- TIPO DE TRABAJO -->
                 <select id="tipoTrabajoSelect" class="form-control">
-                    <option value="">Seleccionar tipo</option>
+                    <option value="" selected>Sin tipo</option>
                     {% for tt in tipos_trabajo %}
                         <option value="{{ tt.id }}">{{ tt.nombre }}</option>
                     {% endfor %}
@@ -84,7 +84,15 @@
                     {% for i in insumos %}
                         <option value="{{ i.id }}">{{ i.nombre }}</option>
                     {% endfor %}
+                    <option value="nuevo">+ Nuevo insumo</option>
                 </select>
+
+                <input type="text"
+                    id="nuevoInsumo"
+                    class="form-control"
+                    placeholder="Nombre del nuevo insumo"
+                    style="display:none; margin-top:6px;">
+            
             </td>
         </tr>
 
@@ -152,7 +160,13 @@ tipoTrabajoSelect.addEventListener("change", () => {
 });
 
 
+const insumoSelect = document.getElementById("insumoSelect");
+const nuevoInsumo = document.getElementById("nuevoInsumo");
 
+insumoSelect.addEventListener("change", () => {
+    nuevoInsumo.style.display =
+        insumoSelect.value === "nuevo" ? "block" : "none";
+});
 
 
 /* ===== TIEMPOS ===== */
@@ -199,7 +213,10 @@ function guardarMovimiento() {
         fecha: document.querySelector("input[name='fecha']").value,
         monto: montoInput.value,
         tiempo: tiempoTotal,
-        insumo_id: document.getElementById("insumoSelect")?.value
+        insumo_id: document.getElementById("insumoSelect")?.value,
+        nuevo_insumo: nuevoInsumo?.value
+        
+        
     };
 
     fetch("{{ url_for('movimientos.guardar') }}", {

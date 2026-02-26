@@ -40,7 +40,7 @@ class TipoTrabajo(db.Model):
 
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
 
-    trabajos = db.relationship('Trabajo', backref='tipo', lazy=True)
+    trabajos = db.relationship('Trabajo', back_populates='tipo', lazy=True)
 
 
 # =========================
@@ -58,7 +58,9 @@ class Trabajo(db.Model):
     fecha = db.Column(db.Date, default=date.today)
 
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    tipo_id = db.Column(db.Integer, db.ForeignKey('tipos_trabajo.id'), nullable=False)
+    tipo_id = db.Column(db.Integer, db.ForeignKey('tipos_trabajo.id'))
+
+    tipo = db.relationship("TipoTrabajo", back_populates="trabajos")
 
     pagos = db.relationship(
         'Pago',
@@ -95,6 +97,10 @@ class Trabajo(db.Model):
         if self.horas_totales > 0:
             return round(self.ingreso_total_neto / self.horas_totales, 2)
         return 0
+    
+    @property
+    def nombre_tipo(self):
+        return self.tipo.nombre if self.tipo else "Sin tipo"
 
 
 # =========================

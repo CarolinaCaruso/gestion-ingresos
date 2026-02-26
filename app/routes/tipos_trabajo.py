@@ -100,16 +100,29 @@ def editar(tipo_id):
 @tipos_trabajo.route('/eliminar/<int:tipo_id>', methods=['POST'])
 @login_required
 def eliminar(tipo_id):
+
     tipo = TipoTrabajo.query.filter_by(
         id=tipo_id,
         usuario_id=current_user.id
     ).first_or_404()
 
+    # Verificación robusta usando join
+    existe_trabajo = (
+        db.session.query(Trabajo.id)
+        .filter(
+            Trabajo.tipo_id == tipo.id,
+            Trabajo.usuario_id == current_user.id
+        )
+        .first()
+    )
+    
+    print("Trabajos asociados:", tipo.trabajos)
+
     if tipo.trabajos:
         return jsonify(
             {'error': 'No se puede eliminar: tiene trabajos asociados'},
-            400
-        )
+        ), 400
+        
 
     db.session.delete(tipo)
     db.session.commit()
@@ -123,61 +136,142 @@ def eliminar(tipo_id):
 @tipos_trabajo.route('/<int:tipo_id>/resumen')
 @login_required
 def resumen_por_mes(tipo_id):
-    rows = (
+
+    # -------- FILTRO DINÁMICO --------
+    if tipo_id == 0:
+        filtro_tipo = Trabajo.tipo_id.is_(None)
+    else:
+        filtro_tipo = Trabajo.tipo_id == tipo_id
+
+    # -------- INGRESOS (por fecha del PAGO) --------
+    ingresos = (
         db.session.query(
-            func.strftime('%m-%Y', Trabajo.fecha).label('mes'),
-            func.sum(Pago.monto).label('bruto'),
-            func.sum(GastoTrabajo.monto).label('gasto')
+            func.strftime('%m-%Y', Pago.fecha).label('mes'),
+            func.sum(Pago.monto).label('bruto')
         )
-        .join(Pago, Pago.trabajo_id == Trabajo.id)
-        .outerjoin(GastoTrabajo, GastoTrabajo.trabajo_id == Trabajo.id)
+        .join(Trabajo, Pago.trabajo_id == Trabajo.id)
         .filter(
-            Trabajo.tipo_id == tipo_id,
+            filtro_tipo,
             Trabajo.usuario_id == current_user.id
         )
         .group_by('mes')
-        .order_by('mes')
         .all()
     )
 
-    return jsonify([
-        {
+    # -------- GASTOS (por fecha del GASTO) --------
+    gastos = (
+        db.session.query(
+            func.strftime('%m-%Y', GastoTrabajo.fecha).label('mes'),
+            func.sum(GastoTrabajo.monto).label('gasto')
+        )
+        .join(Trabajo, GastoTrabajo.trabajo_id == Trabajo.id)
+        .filter(
+            filtro_tipo,
+            Trabajo.usuario_id == current_user.id
+        )
+        .group_by('mes')
+        .all()
+    )
+
+    # -------- UNIR RESULTADOS --------
+    resumen = {}
+
+    for r in ingresos:
+        resumen[r.mes] = {
             "mes": r.mes,
             "bruto": float(r.bruto or 0),
-            "gasto": float(r.gasto or 0),
-            "neto": float((r.bruto or 0) - (r.gasto or 0))
+            "gasto": 0.0
         }
-        for r in rows
-    ])
 
+    for g in gastos:
+        if g.mes not in resumen:
+            resumen[g.mes] = {
+                "mes": g.mes,
+                "bruto": 0.0,
+                "gasto": float(g.gasto or 0)
+            }
+        else:
+            resumen[g.mes]["gasto"] = float(g.gasto or 0)
 
+    # Calcular neto y ordenar por mes
+    resultado = []
+    for mes in sorted(resumen.keys()):
+        bruto = resumen[mes]["bruto"]
+        gasto = resumen[mes]["gasto"]
+
+        resultado.append({
+            "mes": mes,
+            "bruto": bruto,
+            "gasto": gasto,
+            "neto": bruto - gasto
+        })
+
+    return jsonify(resultado)
 
 
 @tipos_trabajo.route('/<int:tipo_id>/detalle/<mes>')
 @login_required
 def detalle_mes(tipo_id, mes):
+
     mes_num, anio = mes.split("-")
 
-    trabajos = (
-        Trabajo.query
+    # -------- FILTRO DINÁMICO --------
+    if tipo_id == 0:
+        filtro_tipo = Trabajo.tipo_id.is_(None)
+    else:
+        filtro_tipo = Trabajo.tipo_id == tipo_id
+
+    # -------- PAGOS DEL MES --------
+    pagos = (
+        db.session.query(Pago, Trabajo)
+        .join(Trabajo, Pago.trabajo_id == Trabajo.id)
         .filter(
-            Trabajo.tipo_id == tipo_id,
+            filtro_tipo,
             Trabajo.usuario_id == current_user.id,
-            extract('month', Trabajo.fecha) == int(mes_num),
-            extract('year', Trabajo.fecha) == int(anio)
+            extract('month', Pago.fecha) == int(mes_num),
+            extract('year', Pago.fecha) == int(anio)
+        )
+        .all()
+    )
+
+    # -------- GASTOS DEL MES --------
+    gastos = (
+        db.session.query(GastoTrabajo, Trabajo)
+        .join(Trabajo, GastoTrabajo.trabajo_id == Trabajo.id)
+        .filter(
+            filtro_tipo,
+            Trabajo.usuario_id == current_user.id,
+            extract('month', GastoTrabajo.fecha) == int(mes_num),
+            extract('year', GastoTrabajo.fecha) == int(anio)
         )
         .all()
     )
 
     data = []
-    for t in trabajos:
+
+    # Agregar pagos
+    for pago, trabajo in pagos:
         data.append({
-            "fecha": t.fecha.strftime("%d/%m"),
-            "tipo": t.tipo.nombre,
-            "trabajo": t.nombre,
-            "bruto": t.ingreso_total_bruto,
-            "gasto": t.gasto_total,
-            "neto": t.ingreso_total_neto
+            "fecha": pago.fecha.strftime("%d/%m"),
+            "tipo": trabajo.tipo.nombre if trabajo.tipo else "Sin tipo",
+            "trabajo": trabajo.nombre,
+            "bruto": float(pago.monto),
+            "gasto": 0.0,
+            "neto": float(pago.monto)
         })
+
+    # Agregar gastos
+    for gasto, trabajo in gastos:
+        data.append({
+            "fecha": gasto.fecha.strftime("%d/%m"),
+            "tipo": trabajo.tipo.nombre if trabajo.tipo else "Sin tipo",
+            "trabajo": trabajo.nombre,
+            "bruto": 0.0,
+            "gasto": float(gasto.monto),
+            "neto": -float(gasto.monto)
+        })
+
+    # Ordenar por fecha
+    data.sort(key=lambda x: x["fecha"])
 
     return jsonify(data)

@@ -18,6 +18,18 @@
     </thead>
     <tbody>
 
+    <tr class="fila-tipo" data-id="0">
+        <td class="nombre">Sin tipo</td>
+        <td></td>
+    </tr>
+
+    <tr class="fila-detalle-tipo" style="display:none">
+        <td colspan="2">
+            <div class="detalle-tipo"></div>
+        </td>
+    </tr>
+        
+
     {% for tipo in tipos %}
         <tr class="fila-tipo" data-id="{{ tipo.id }}">
             <td class="nombre">{{ tipo.nombre }}</td>
@@ -212,21 +224,30 @@ document.addEventListener("click", async e => {
     function eliminarTipo(btn) {
         const fila = btn.closest("tr");
         const id = fila.dataset.id;
+        const nombre = fila.querySelector(".nombre").textContent;
 
-        if (!confirm("¿Eliminar este tipo de trabajo?")) return;
+        if (!confirm(`¿Eliminar el tipo "${nombre}"?`)) return;
 
         fetch(eliminarTipoUrlBase.replace("0", id), {
             method: "POST"
         })
-        .then(async response => {
+        .then(response => {
             if (!response.ok) {
-                const data = await response.json();
-                alert(data.error || "No se pudo eliminar");
-                return;
+                return response.json().then(data => {
+                    throw new Error(data.error || "No se pudo eliminar el tipo.");
+                });
             }
+            return response.json();
+        })
+        .then(() => {
+            alert("Tipo eliminado correctamente.");
             location.reload();
+        })
+        .catch(error => {
+            alert(error.message);
         });
     }
+
 </script>
 
 
